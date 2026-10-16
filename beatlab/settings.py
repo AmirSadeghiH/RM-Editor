@@ -35,6 +35,16 @@ IS_PRODUCTION = DJANGO_ENV == "production"
 
 DEBUG = env_bool("DJANGO_DEBUG", default=not IS_PRODUCTION)
 
+# Production must never run with DEBUG enabled. DEBUG=True leaks settings,
+# stack traces and SQL, disables the security middleware defaults, and turns
+# Django's static-file helper into a public file server. Refuse to start
+# instead of silently serving a debug build in production.
+if IS_PRODUCTION and DEBUG:
+    raise RuntimeError(
+        "DJANGO_DEBUG must be 0 (disabled) when DJANGO_ENV=production. "
+        "DEBUG=True is never allowed in production."
+    )
+
 # Production must supply a real secret key; there is no insecure fallback.
 _secret_from_env = os.environ.get("DJANGO_SECRET_KEY", "").strip()
 if IS_PRODUCTION:
@@ -186,8 +196,11 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Uploaded audio and rendered exports. Never served directly by URL:
-# downloads go through authenticated API endpoints.
+# Uploaded audio and rendered exports. Never served directly by URL in
+# production: downloads go through the authenticated API endpoints
+# (``/api/assets/<id>/audio/`` and ``/api/exports/<id>/download/``), both of
+# which are scoped to the resource owner. The development static-media route
+# in ``beatlab/urls.py`` is hard-disabled when ``DJANGO_ENV=production``.
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("BEATLAB_MEDIA_ROOT", BASE_DIR / "media"))
 

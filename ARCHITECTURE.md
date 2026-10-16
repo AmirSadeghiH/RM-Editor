@@ -156,6 +156,14 @@ cleanup).
   checks gate dependents instead of sleep scripts.
 * Settings: env-driven (`settings.py`); production hardening (secret key
   required, explicit hosts, secure cookies, HSTS, SSL redirect).
+* Startup guards (all raise `RuntimeError`, i.e. the process refuses to boot):
+  production + `DJANGO_DEBUG=1`, production without a strong `SECRET_KEY`,
+  production with wildcard `ALLOWED_HOSTS`, production with dev auth enabled.
+* Private media: `MEDIA_ROOT` (uploads + exports) is only exposed through
+  Django's static helper in development. `beatlab.urls.media_urlpatterns()`
+  returns an empty list when `DJANGO_ENV=production` or `DEBUG` is off, so
+  production downloads go exclusively through the owner-scoped API endpoints
+  `/api/assets/<uuid>/audio/` and `/api/exports/<uuid>/download/`.
 * Logging: single console formatter, error-level detail for render failures
   (FFmpeg stderr tail) without secrets.
 

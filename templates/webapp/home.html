@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BeatLab — پروژه‌های من{% endblock %}
+
+{% block body %}
+<header class="app-bar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M9 18V6l10-2v11"></path>
+        <circle cx="7" cy="18" r="2.5"></circle>
+        <circle cx="17" cy="15" r="2.5"></circle>
+      </svg>
+    </div>
+    <div>
+      BeatLab
+      <div class="tag">استودیو میکس و ریمیکس</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span class="chip" id="user-chip">در حال ورود…</span>
+</header>
+
+<main class="page">
+  <section class="hero">
+    <h1>پروژه‌های من</h1>
+    <p>فایل‌های صوتی‌ات را وارد کن، روی تایم‌لاین چندترکی بچین، و خروجی نهایی را با کیفیت بالا رندر بگیر.</p>
+    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btn-new-project">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        پروژه جدید
+      </button>
+      <button class="btn btn-ghost hidden" id="btn-dev-login">ورود آزمایشی (حالت توسعه)</button>
+    </div>
+  </section>
+
+  <div class="section-title">
+    <h2>پروژه‌های اخیر</h2>
+    <button class="btn btn-ghost btn-icon" id="btn-refresh" title="بروزرسانی" aria-label="بروزرسانی">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+    </button>
+  </div>
+
+  <div id="projects-region">
+    <div class="empty-state hidden" id="projects-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M9 18V6l10-2v11"></path>
+        <circle cx="7" cy="18" r="2.5"></circle>
+        <circle cx="17" cy="15" r="2.5"></circle>
+      </svg>
+      <div class="h">هنوز پروژه‌ای نداری</div>
+      <div>اولین پروژه‌ات را بساز و یک فایل صوتی آپلود کن.</div>
+    </div>
+    <div class="project-grid" id="project-grid"></div>
+    <div class="tray-empty" id="projects-loading" style="text-align:center; padding:24px;">
+      <span class="spinner"></span> در حال بارگذاری پروژه‌ها…
+    </div>
+  </div>
+
+  <div class="notice">
+    توجه: فقط فایل‌های صوتی را که حق استفاده از آن‌ها را دارید آپلود کنید. مسئولیت رعایت حقوق مالکیت موسیقی بر عهده شماست.
+  </div>
+
+  <footer class="legal">
+    BeatLab — نسخه MVP · ساخته‌شده با Django و Web Audio API
+  </footer>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'js/home.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,9 @@
+{
+  "name": "beatlab-frontend-tests",
+  "private": true,
+  "type": "module",
+  "description": "No JS build step — this file only lets node --test import the ES modules in static/js.",
+  "scripts": {
+    "test": "node --test \"tests/frontend/*.test.mjs\""
+  }
+}

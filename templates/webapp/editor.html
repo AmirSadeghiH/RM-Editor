@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BeatLab — ویرایشگر{% endblock %}
+
+{% block body %}
+<header class="app-bar">
+  <button class="btn btn-ghost btn-icon" id="btn-back" title="بازگشت به پروژه‌ها" aria-label="بازگشت">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <input class="title-input" id="project-title" maxlength="200" placeholder="عنوان پروژه" aria-label="عنوان پروژه">
+  <div class="spacer"></div>
+  <div class="save-status" id="save-status"><span class="status-dot ok"></span><span id="save-text">ذخیره‌شده</span></div>
+  <button class="btn btn-ghost btn-icon" id="btn-undo" title="بازگردانی (Undo)" aria-label="بازگردانی">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 1 2.1 5.4"/></svg>
+  </button>
+  <button class="btn btn-ghost btn-icon" id="btn-redo" title="انجام دوباره (Redo)" aria-label="انجام دوباره">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M20.5 13a9 9 0 1 0-2.1 5.4"/></svg>
+  </button>
+  <button class="btn btn-primary" id="btn-export">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+    خروجی
+  </button>
+</header>
+
+<div class="editor-shell">
+  <!-- Transport -->
+  <div class="transport" role="toolbar" aria-label="کنترل پخش">
+    <button class="play-btn" id="btn-play" aria-label="پخش / مکث">
+      <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+      <svg id="icon-pause" class="hidden" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+    </button>
+    <button class="btn btn-icon" id="btn-stop" title="توقف" aria-label="توقف">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+    <div class="time-display"><span id="time-current">00:00.0</span> <span class="total">/ <span id="time-total">00:00.0</span></span></div>
+    <select class="select" id="speed-select" style="width:auto; min-width:78px; padding:8px;" aria-label="سرعت پخش">
+      <option value="0.5">۰٫۵×</option>
+      <option value="0.75">۰٫۷۵×</option>
+      <option value="1" selected>۱×</option>
+      <option value="1.25">۱٫۲۵×</option>
+      <option value="1.5">۱٫۵×</option>
+    </select>
+    <div class="spacer"></div>
+    <div class="zoom-controls">
+      <button class="btn" id="btn-zoom-out" title="کوچک‌نمایی" aria-label="کوچک‌نمایی">−</button>
+      <button class="btn" id="btn-zoom-fit" title="همه تایم‌لاین" aria-label="همه تایم‌لاین" style="width:auto; padding:0 10px; font-size:11.5px;">همه</button>
+      <button class="btn" id="btn-zoom-in" title="بزرگ‌نمایی" aria-label="بزرگ‌نمایی">+</button>
+    </div>
+    <button class="btn btn-accent" id="btn-ai" title="ابزارهای هوش مصنوعی">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z"/><path d="M19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>
+      ابزار AI
+    </button>
+    <button class="btn btn-primary" id="btn-add-audio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      افزودن فایل
+    </button>
+    <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.opus" multiple class="hidden">
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline-root" id="timeline-root">
+    <aside class="track-controls" id="track-controls" aria-label="کنترل ترک‌ها">
+      <div class="head-spacer">ترک‌ها</div>
+      <div id="track-heads"></div>
+    </aside>
+    <div class="timeline-scroll" id="timeline-scroll">
+      <div class="timeline-inner" id="timeline-inner">
+        <canvas class="ruler-canvas" id="ruler"></canvas>
+        <div class="lanes" id="lanes"></div>
+        <div class="playhead" id="playhead" style="left:0"></div>
+      </div>
+    </div>
+    <div class="loading-overlay hidden" id="editor-loading"><span class="spinner"></span></div>
+  </div>
+
+  <!-- Import tray -->
+  <div class="tray">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <strong style="font-size:12.5px; color:var(--text-dim);">فایل‌های واردشده</strong>
+      <span class="chip" id="asset-count">۰ فایل</span>
+    </div>
+    <div class="tray-scroll" id="asset-tray">
+      <div class="tray-empty" id="tray-empty">ابتدا یک فایل صوتی اضافه کنید.</div>
+    </div>
+    <div class="export-status hidden" id="upload-status">
+      <span class="spinner"></span>
+      <span id="upload-status-text">آپلود فایل...</span>
+      <div class="progress-track"><div class="progress-fill" id="upload-progress"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Clip properties bottom sheet -->
+<div class="sheet-backdrop" id="clip-sheet">
+  <div class="sheet" role="dialog" aria-label="مشخصات کلیپ">
+    <h3>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 8v8M17 8v8"/></svg>
+      مشخصات کلیپ
+    </h3>
+    <div class="sheet-row">
+      <label>حجم صدا</label>
+      <div class="value">
+        <input type="range" id="clip-volume" min="0" max="2" step="0.01">
+        <span id="clip-volume-label" style="min-width:42px; text-align:left;">100٪</span>
+      </div>
+    </div>
+    <div class="sheet-row">
+      <label>محو شدن (Fade-in)</label>
+      <div class="value">
+        <input type="range" id="clip-fade-in" min="0" max="5" step="0.05">
+        <span id="clip-fade-in-label" style="min-width:42px; text-align:left;">0.0s</span>
+      </div>
+    </div>
+    <div class="sheet-row">
+      <label>محو شدن (Fade-out)</label>
+      <div class="value">
+        <input type="range" id="clip-fade-out" min="0" max="5" step="0.05">
+        <span id="clip-fade-out-label" style="min-width:42px; text-align:left;">0.0s</span>
+      </div>
+    </div>
+    <div class="sheet-row">
+      <label>شروع / پایان</label>
+      <div class="value" id="clip-timing" style="color:var(--text-faint); font-size:12px;"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="clip-split">برش در هد پخش</button>
+      <button class="btn" id="clip-duplicate">تکثیر</button>
+      <button class="btn" id="clip-crossfade">کراس‌فید با کلیپ بعدی</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="clip-mute">بی‌صدا</button>
+      <button class="btn btn-danger" id="clip-delete">حذف کلیپ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export bottom sheet -->
+<div class="sheet-backdrop" id="export-sheet">
+  <div class="sheet" role="dialog" aria-label="خروجی گرفتن">
+    <h3>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      خروجی گرفتن از میکس
+    </h3>
+    <div class="sheet-row">
+      <label>فرمت خروجی</label>
+      <div class="value">
+        <select class="select" id="export-format" style="width:140px;">
+          <option value="mp3" selected>MP3</option>
+          <option value="wav">WAV</option>
+        </select>
+      </div>
+    </div>
+    <div class="sheet-row" id="export-bitrate-row">
+      <label>کیفیت MP3</label>
+      <div class="value">
+        <select class="select" id="export-bitrate" style="width:140px;">
+          <option value="128k">128 kbps</option>
+          <option value="192k" selected>192 kbps</option>
+          <option value="256k">256 kbps</option>
+          <option value="320k">320 kbps</option>
+        </select>
+      </div>
+    </div>
+    <div class="sheet-row hidden" id="export-depth-row">
+      <label>عمق بیت WAV</label>
+      <div class="value">
+        <select class="select" id="export-depth" style="width:140px;">
+          <option value="16" selected>16-bit</option>
+          <option value="24">24-bit</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="export-status hidden" id="export-progress-box">
+      <span class="status-dot busy" id="export-status-dot"></span>
+      <span id="export-status-text">در صف پردازش...</span>
+      <div class="progress-track"><div class="progress-fill" id="export-progress"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-start-export">شروع رندر</button>
+      <a class="btn btn-accent hidden" id="btn-download" download>دانلود خروجی</a>
+      <button class="btn btn-ghost hidden" id="btn-export-close">بازگشت به ویرایش</button>
+    </div>
+    <div class="notice">
+      رندر خروجی سمت سرور و با FFmpeg انجام می‌شود؛ پیش‌نمایش مرورگر فقط برای مانیتورینگ است.
+    </div>
+  </div>
+</div>
+
+<!-- AI tools bottom sheet -->
+<div class="sheet-backdrop" id="ai-sheet">
+  <div class="sheet" role="dialog" aria-label="ابزارهای هوش مصنوعی">
+    <h3>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z"/></svg>
+      ابزارهای هوش مصنوعی
+    </h3>
+    <div class="ai-item">
+      <div>
+        <div class="t">جداسازی خودکار صدا (Stem Separation)</div>
+        <div class="d">استخراج وکال، درام، بیس و سازهای دیگر از یک آهنگ کامل — به‌زودی.</div>
+      </div>
+      <span class="badge-soon">به‌زودی</span>
+    </div>
+    <div class="ai-item">
+      <div>
+        <div class="t">تشخیص تمپو و هماهنگ‌سازی بیت</div>
+        <div class="d">هم‌تراز کردن خودکار کلیپ‌ها روی شبکه ریتمیک — به‌زودی.</div>
+      </div>
+      <span class="badge-soon">به‌زودی</span>
+    </div>
+    <div class="ai-item">
+      <div>
+        <div class="t">ترمیم بیت (Beat Replacement)</div>
+        <div class="d">همین حالا ممکن است: وکال یا آکاپلای خود را روی یک ترک بیساز جدید بگذار و میکس کن.</div>
+      </div>
+      <span class="chip" style="color:var(--success); border-color:rgba(52,211,153,.4);">فعال در همین نسخه</span>
+    </div>
+    <div class="notice">
+      این قابلیت‌ها در نسخه MVP به‌صورت واقعی اجرا نمی‌شوند و هیچ پردازش جعلی‌ای انجام نمی‌شود.
+      معماری افزونه‌ای برای اضافه‌کردن مدل‌های واقعی در آینده آماده است.
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btn-ai-close">بستن</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'js/editor.js' %}"></script>
+{% endblock %}

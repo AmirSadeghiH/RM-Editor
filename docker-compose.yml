@@ -1,0 +1,87 @@
+# BeatLab local development stack: web + PostgreSQL + Redis + worker + bot.
+# The bot stays idle (and the app remains fully usable in a normal browser)
+# until Telegram credentials are configured in .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-beatlab}
+      POSTGRES_USER: ${POSTGRES_USER:-beatlab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beatlab}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beatlab} -d ${POSTGRES_DB:-beatlab}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build: .
+    command: ["web"]
+    env_file: .env
+    environment:
+      DB_URL: postgresql://${POSTGRES_USER:-beatlab}:${POSTGRES_PASSWORD:-beatlab}@db:5432/${POSTGRES_DB:-beatlab}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      BEATLAB_MEDIA_ROOT: /var/lib/beatlab/media
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - media:/var/lib/beatlab/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build: .
+    command: ["worker"]
+    env_file: .env
+    environment:
+      DB_URL: postgresql://${POSTGRES_USER:-beatlab}:${POSTGRES_PASSWORD:-beatlab}@db:5432/${POSTGRES_DB:-beatlab}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      BEATLAB_MEDIA_ROOT: /var/lib/beatlab/media
+    volumes:
+      - media:/var/lib/beatlab/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+  bot:
+    build: .
+    command: ["bot"]
+    env_file: .env
+    environment:
+      DB_URL: postgresql://${POSTGRES_USER:-beatlab}:${POSTGRES_PASSWORD:-beatlab}@db:5432/${POSTGRES_DB:-beatlab}
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  media:

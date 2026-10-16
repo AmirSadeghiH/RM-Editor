@@ -1,0 +1,23 @@
+# BeatLab backend dependencies — pinned for reproducible installs.
+# Python 3.11+ recommended (3.12 used in the Docker image).
+
+Django==5.2.18
+djangorestframework==3.16.1
+
+# Async export jobs
+celery[redis]==5.5.3
+redis==5.2.1
+kombu==5.5.4
+
+# PostgreSQL driver (used by docker-compose / production)
+psycopg[binary]==3.2.10
+
+# Telegram bot
+aiogram==3.26.0
+
+# WSGI server
+gunicorn==23.0.0
+
+# Tests
+pytest==8.4.2
+pytest-django==4.11.1

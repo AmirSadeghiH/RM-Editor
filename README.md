@@ -130,9 +130,11 @@ if `DJANGO_ENV=production` is combined with `BEATLAB_DEV_AUTH=1`.
    TELEGRAM_BOT_TOKEN=123456:ABC-your-token
    TELEGRAM_WEBAPP_URL=https://your-domain.example/
    DJANGO_ENV=production
+   DJANGO_DEBUG=0            # required — see "Production deployment" below
    DJANGO_SECRET_KEY=<long random string>
    ALLOWED_HOSTS=your-domain.example
    CSRF_TRUSTED_ORIGINS=https://your-domain.example
+   BEATLAB_DEV_AUTH=0        # dev login must stay disabled
    ```
 3. `docker compose up --build` (or restart). The bot container starts long
    polling and answers `/start` and `/help` with a **«باز کردن استودیو»**
@@ -144,6 +146,44 @@ if `DJANGO_ENV=production` is combined with `BEATLAB_DEV_AUTH=1`.
    max age is `TELEGRAM_AUTH_MAX_AGE`, default 24 h).
 
 Never commit real tokens. `.env.example` contains placeholders only.
+
+---
+
+## Production deployment
+
+The production profile is *strict*: the application refuses to start rather
+than running with unsafe defaults.
+
+```ini
+DJANGO_ENV=production
+DJANGO_DEBUG=0                 # REQUIRED — startup fails with DEBUG=1
+DJANGO_SECRET_KEY=<64+ random chars, not "change-me...">
+ALLOWED_HOSTS=your-domain.example            # explicit hosts, no "*", no ".domain"
+CSRF_TRUSTED_ORIGINS=https://your-domain.example
+BEATLAB_DEV_AUTH=0             # dev login must stay disabled
+```
+
+Startup aborts with a `RuntimeError` when:
+
+| Condition | Why it is fatal |
+|---|---|
+| `DJANGO_ENV=production` **and** `DJANGO_DEBUG=1` | debug mode leaks settings, stack traces and SQL |
+| `DJANGO_ENV=production` without a strong `DJANGO_SECRET_KEY` | sessions would be forgeable |
+| `DJANGO_ENV=production` with `ALLOWED_HOSTS` empty / `*` / `.domain` | host header poisoning |
+| `DJANGO_ENV=production` with `BEATLAB_DEV_AUTH=1` | bypasses Telegram verification |
+
+**Private media.** Uploaded audio and rendered exports live under
+`BEATLAB_MEDIA_ROOT` and are *never* served as static files in production:
+the development static-media route is hard-disabled whenever
+`DJANGO_ENV=production` (and it is skipped whenever `DEBUG` is off). The
+only supported download paths are the authenticated, owner-scoped API
+endpoints — `GET /api/assets/<uuid>/audio/` and
+`GET /api/exports/<uuid>/download/` — which return `404` for other users'
+resources and set `Cache-Control: private, no-store`.
+
+In development (`DJANGO_ENV=development`, `DJANGO_DEBUG=1`) the usual
+convenience route `/media/<path>` is still served by Django so you can open
+uploaded files directly while working locally.
 
 ---
 
@@ -187,9 +227,9 @@ limits) are documented in `studio/timeline.py` and `ARCHITECTURE.md`.
 
 ## Running the tests
 
-Backend (97 tests — API, auth, validation, renderer unit + real FFmpeg
-integration). FFmpeg-dependent tests are skipped automatically with a reason
-if the binaries are missing.
+Backend (153 tests — API, auth, validation, production configuration guards,
+renderer unit + real FFmpeg integration). FFmpeg-dependent tests are skipped
+automatically with a reason if the binaries are missing.
 
 ```bash
 . .venv/bin/activate
@@ -248,6 +288,9 @@ More detail in [`ARCHITECTURE.md`](ARCHITECTURE.md).
   deduplicated while a job is active.
 * Production settings require a real `SECRET_KEY`, explicit `ALLOWED_HOSTS`,
   secure cookies, HSTS; there is no fallback production secret.
+* Production startup fails loudly when `DEBUG` is enabled; uploaded media and
+  rendered exports are never exposed through Django's static-media route in
+  production (see "Production deployment").
 
 **Copyright notice:** only upload audio you have the rights to process.
 BeatLab does not download music from streaming links.
@@ -260,7 +303,9 @@ BeatLab does not download music from streaming links.
   limits, heavy for many full-length tracks on low-RAM phones).
 * Preview fidelity can differ subtly from the FFmpeg render (resampling /
   codec behavior); the render is authoritative.
-* Export progress is derived from FFmpeg `out_time` and updates in ~5% steps.
+* Export progress is derived from FFmpeg's `-progress pipe:1` events (`out_time`)
+  and updates in ~5% steps; 100% is only reported once the rendered file has
+  been probed and validated.
 * Rate limiting uses DRF throttling (per-process cache) — adequate for a
   single-instance MVP, not a distributed guard.
 * No realtime collaboration, no MIDI, no plugin effects (reverb/EQ) yet.

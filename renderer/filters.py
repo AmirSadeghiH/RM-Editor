@@ -160,6 +160,11 @@ def build_render_plan(
 
     # One input per clip keeps trims/fades independent even when the same
     # asset appears multiple times. Clip count is capped by settings (30).
+    #
+    # ``-progress pipe:1`` makes FFmpeg write machine-readable progress
+    # events (``out_time_us=...``) to stdout, and ``-nostats`` suppresses the
+    # human-readable stats line so stdout only carries progress events.
+    # Both are global options and must precede the output file.
     args: list[str] = [
         ffmpeg_binary,
         "-hide_banner",
@@ -167,6 +172,9 @@ def build_render_plan(
         "-y",
         "-loglevel",
         "error",
+        "-progress",
+        "pipe:1",
+        "-nostats",
     ]
     for clip in clips:
         args += ["-i", str(clip.input_path)]
